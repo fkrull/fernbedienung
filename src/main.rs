@@ -1,7 +1,12 @@
 use inotify::{Inotify, WatchMask};
 use log::{debug, error, info};
 use serde::Deserialize;
-use std::{path::Path, process::Command, str::FromStr};
+use std::{
+    path::Path,
+    process::{Child, Command},
+    str::FromStr,
+    sync::mpsc::{Receiver, SyncSender},
+};
 
 const DEV_INPUT: &'static str = "/dev/input";
 
@@ -110,23 +115,28 @@ fn device_matches(config: &Config, device: &evdev::Device) -> bool {
     }
 }
 
-fn run_action(action: &ActionConfig) -> eyre::Result<()> {
+fn run_action(action: &ActionConfig, send: &SyncSender<(String, Child)>) -> eyre::Result<()> {
     info!("Running command '{:?}'", action.action.0);
     let (program, args) = action
         .action
         .0
         .split_first()
         .ok_or_else(|| eyre::eyre!("command is empty"))?;
-    let _ = Command::new(program).args(args).spawn()?;
+    let child = Command::new(program).args(args).spawn()?;
+    send.send((program.clone(), child))?;
     Ok(())
 }
 
-fn listen_device_loop(config: &Config, device: &mut evdev::Device) -> eyre::Result<()> {
+fn listen_device_loop(
+    config: &Config,
+    device: &mut evdev::Device,
+    send: &SyncSender<(String, Child)>,
+) -> eyre::Result<()> {
     loop {
         for event in device.fetch_events()? {
             debug!("Received input event {:?}", event);
             if let Some(action) = config.action_for(&event)? {
-                if let Err(error) = run_action(action) {
+                if let Err(error) = run_action(action, send) {
                     error!("Error while running action: {:?}", error)
                 }
             }
@@ -134,18 +144,31 @@ fn listen_device_loop(config: &Config, device: &mut evdev::Device) -> eyre::Resu
     }
 }
 
-fn listen_device(config: &Config, device: &mut evdev::Device) {
+fn listen_device(config: &Config, device: &mut evdev::Device, send: &SyncSender<(String, Child)>) {
     info!("Open matching input device '{}'", config.name);
-    match listen_device_loop(config, device) {
+    match listen_device_loop(config, device, send) {
         Ok(_) => info!("Device closed"),
         Err(error) => info!("Device closed ({:?})", error),
     }
 }
 
+fn log_command_results(recv: Receiver<(String, Child)>) -> eyre::Result<()> {
+    debug!("Start logging command results");
+    loop {
+        let (program, mut child) = recv.recv()?;
+        match child.wait() {
+            Ok(status) if status.success() => debug!("Command '{}' exited successfully", program),
+            Ok(status) => error!("Command '{}' exited unsuccessfully ({})", program, status),
+            Err(error) => error!(
+                "Error while waiting for command '{}' to finish: {:?}",
+                program, error
+            ),
+        }
+    }
+}
+
 fn main() -> eyre::Result<()> {
-    env_logger::builder()
-        .filter_level(log::LevelFilter::Debug)
-        .try_init()?;
+    env_logger::Builder::from_env(env_logger::Env::new().default_filter_or("info")).try_init()?;
 
     #[cfg(feature = "baked-config")]
     let config: Config = {
@@ -161,10 +184,13 @@ fn main() -> eyre::Result<()> {
         toml::from_str(&config_string)?
     };
 
+    let (send, recv) = std::sync::mpsc::sync_channel(100);
+    std::thread::spawn(|| log_command_results(recv));
+
     info!("Enumerating initial devices...");
     for mut device in evdev::enumerate() {
         if device_matches(&config, &device) {
-            listen_device(&config, &mut device);
+            listen_device(&config, &mut device, &send);
             break;
         }
     }
@@ -187,7 +213,7 @@ fn main() -> eyre::Result<()> {
                 let device = evdev::Device::open(&path);
                 match device {
                     Ok(mut device) if device_matches(&config, &device) => {
-                        listen_device(&config, &mut device)
+                        listen_device(&config, &mut device, &send);
                     }
                     Err(error) => debug!("{}: failed to open device: {:?}", path.display(), error),
                     _ => (),
