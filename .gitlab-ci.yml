@@ -1,0 +1,30 @@
+include:
+  - template: 'Workflows/Branch-Pipelines.gitlab-ci.yml'
+
+stages:
+  - build
+
+build:
+  stage: build
+  image: quay.io/buildah/stable
+  variables:
+    STORAGE_DRIVER: vfs
+    BUILDAH_ISOLATION: chroot
+  rules:
+    - if: '$CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH'
+  script:
+    - buildah build
+      --tag=latest-arm64v8
+      --build-arg=IMAGE_ARCH=arm64v8
+      --build-arg=RUST_ARCH=aarch64-unknown-linux-musl
+      .
+    - buildah push
+      --creds=$CI_REGISTRY_USER:$CI_REGISTRY_PASSWORD
+      latest-arm64v8
+      docker://$CI_REGISTRY_IMAGE:latest-arm64v8
+    - buildah manifest create manifest-list
+      docker://$CI_REGISTRY_IMAGE:latest-arm64v8
+    - buildah manifest push
+      --creds=$CI_REGISTRY_USER:$CI_REGISTRY_PASSWORD
+      manifest-list
+      docker://$CI_REGISTRY_IMAGE:latest
