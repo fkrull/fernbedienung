@@ -22,12 +22,3 @@ build:
       --creds=$CI_REGISTRY_USER:$CI_REGISTRY_PASSWORD
       latest-arm64v8
       docker://$CI_REGISTRY_IMAGE:latest-arm64v8
-    - buildah manifest create manifest-list
-    - buildah manifest add
-      --creds=$CI_REGISTRY_USER:$CI_REGISTRY_PASSWORD
-      manifest-list
-      docker://$CI_REGISTRY_IMAGE:latest-arm64v8
-    - buildah manifest push
-      --creds=$CI_REGISTRY_USER:$CI_REGISTRY_PASSWORD
-      manifest-list
-      docker://$CI_REGISTRY_IMAGE:latest
