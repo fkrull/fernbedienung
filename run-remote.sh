@@ -1,7 +1,7 @@
 #!/bin/sh -eu
 TARGET=armv7-unknown-linux-gnueabihf
-BIN=target/$TARGET/debug/inputactiond
+BIN=target/$TARGET/debug/fernbedienung
 cargo build --target=$TARGET --features baked-config
 llvm-strip $BIN
-scp $BIN $REMOTE:.cache/inputactiond
-exec ssh -t $REMOTE .cache/inputactiond
+scp $BIN $REMOTE:.cache/fernbedienung
+exec ssh -t $REMOTE .cache/fernbedienung

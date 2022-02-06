@@ -10,8 +10,8 @@ RUN RUSTFLAGS="-Clinker=rust-lld -Cstrip=symbols" \
     --target=${RUST_ARCH} \
     --release \
     --verbose && \
-    cp /app/target/${RUST_ARCH}/release/inputactiond /inputactiond
+    cp /app/target/${RUST_ARCH}/release/fernbedienung /fernbedienung
 
 FROM docker.io/${IMAGE_ARCH}/alpine:3
-COPY --from=build /inputactiond /usr/local/bin/
-CMD ["/usr/local/bin/inputactiond"]
+COPY --from=build /fernbedienung /usr/local/bin/
+CMD ["/usr/local/bin/fernbedienung"]

@@ -93,6 +93,20 @@ dependencies = [
 ]
 
 [[package]]
+name = "fernbedienung"
+version = "0.1.0"
+dependencies = [
+ "env_logger",
+ "evdev",
+ "eyre",
+ "inotify",
+ "log",
+ "serde",
+ "shell-words",
+ "toml",
+]
+
+[[package]]
 name = "funty"
 version = "2.0.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -145,20 +159,6 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "e05c02b5e89bff3b946cedeca278abc628fe811e604f027c45a8aa3cf793d0eb"
 dependencies = [
  "libc",
-]
-
-[[package]]
-name = "inputactiond"
-version = "0.1.0"
-dependencies = [
- "env_logger",
- "evdev",
- "eyre",
- "inotify",
- "log",
- "serde",
- "shell-words",
- "toml",
 ]
 
 [[package]]

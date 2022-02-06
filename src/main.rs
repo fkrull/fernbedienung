@@ -149,13 +149,13 @@ fn main() -> eyre::Result<()> {
 
     #[cfg(feature = "baked-config")]
     let config: Config = {
-        const CONFIG: &'static str = env!("INPUTACTION_CONFIG");
+        const CONFIG: &'static str = env!("FERNBEDIENUNG_CONFIG");
         toml::from_str(CONFIG)?
     };
     #[cfg(not(feature = "baked-config"))]
     let config: Config = {
         use eyre::Context;
-        const CONFIG_ENV_KEY: &'static str = "INPUTACTION_CONFIG";
+        const CONFIG_ENV_KEY: &'static str = "FERNBEDIENUNG_CONFIG";
         let config_string =
             std::env::var(CONFIG_ENV_KEY).context(format!("{} not set", CONFIG_ENV_KEY))?;
         toml::from_str(&config_string)?
