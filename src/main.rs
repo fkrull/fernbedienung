@@ -3,6 +3,8 @@ use inotify::{Inotify, WatchMask};
 fn main() -> eyre::Result<()> {
     color_eyre::install()?;
 
+    println!("starting...");
+
     let mut inotify = Inotify::init()?;
     inotify.add_watch(
         "/dev/input",
