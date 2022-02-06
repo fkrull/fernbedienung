@@ -1,11 +1,9 @@
-use eyre::Context;
 use inotify::{Inotify, WatchMask};
-use log::{debug, info};
+use log::{debug, error, info};
 use serde::Deserialize;
-use std::{path::Path, str::FromStr};
+use std::{path::Path, process::Command, str::FromStr};
 
 const DEV_INPUT: &'static str = "/dev/input";
-const CONFIG_ENV_KEY: &'static str = "INPUTACTION_CONFIG";
 
 #[derive(Debug, Deserialize, PartialEq, Eq, Copy, Clone)]
 #[serde(try_from = "&str")]
@@ -49,11 +47,28 @@ impl Default for KeyState {
 }
 
 #[derive(Debug, Deserialize, PartialEq, Eq)]
+#[serde(try_from = "&str")]
+struct Action(Vec<String>);
+
+impl<'a> TryFrom<&'a str> for Action {
+    type Error = eyre::Report;
+
+    fn try_from(value: &'a str) -> Result<Self, Self::Error> {
+        let words = shell_words::split(value)?;
+        if words.is_empty() {
+            Err(eyre::eyre!("command cannot be empty"))
+        } else {
+            Ok(Action(words))
+        }
+    }
+}
+
+#[derive(Debug, Deserialize, PartialEq, Eq)]
 struct ActionConfig {
     key: KeyCode,
     #[serde(default)]
     on: KeyState,
-    action: String,
+    action: Action,
 }
 
 #[derive(Debug, Deserialize)]
@@ -95,15 +110,35 @@ fn device_matches(config: &Config, device: &evdev::Device) -> bool {
     }
 }
 
-fn listen_device(config: &Config, device: &mut evdev::Device) -> eyre::Result<()> {
-    info!("Listening for input events...");
+fn run_action(action: &ActionConfig) -> eyre::Result<()> {
+    info!("Running command '{:?}'", action.action.0);
+    let (program, args) = action
+        .action
+        .0
+        .split_first()
+        .ok_or_else(|| eyre::eyre!("command is empty"))?;
+    let _ = Command::new(program).args(args).spawn()?;
+    Ok(())
+}
+
+fn listen_device_loop(config: &Config, device: &mut evdev::Device) -> eyre::Result<()> {
     loop {
         for event in device.fetch_events()? {
             debug!("Received input event {:?}", event);
             if let Some(action) = config.action_for(&event)? {
-                info!("Running command '{}'", action.action);
+                if let Err(error) = run_action(action) {
+                    error!("Error while running action: {:?}", error)
+                }
             }
         }
+    }
+}
+
+fn listen_device(config: &Config, device: &mut evdev::Device) {
+    info!("Open matching input device '{}'", config.name);
+    match listen_device_loop(config, device) {
+        Ok(_) => info!("Device closed"),
+        Err(error) => info!("Device closed ({:?})", error),
     }
 }
 
@@ -112,19 +147,29 @@ fn main() -> eyre::Result<()> {
         .filter_level(log::LevelFilter::Debug)
         .try_init()?;
 
-    let config_string =
-        std::env::var(CONFIG_ENV_KEY).context(format!("{} not set", CONFIG_ENV_KEY))?;
-    let config: Config = toml::from_str(&config_string)?;
+    #[cfg(feature = "baked-config")]
+    let config: Config = {
+        const CONFIG: &'static str = env!("INPUTACTION_CONFIG");
+        toml::from_str(CONFIG)?
+    };
+    #[cfg(not(feature = "baked-config"))]
+    let config: Config = {
+        use eyre::Context;
+        const CONFIG_ENV_KEY: &'static str = "INPUTACTION_CONFIG";
+        let config_string =
+            std::env::var(CONFIG_ENV_KEY).context(format!("{} not set", CONFIG_ENV_KEY))?;
+        toml::from_str(&config_string)?
+    };
 
     info!("Enumerating initial devices...");
     for mut device in evdev::enumerate() {
         if device_matches(&config, &device) {
-            listen_device(&config, &mut device)?;
+            listen_device(&config, &mut device);
             break;
         }
     }
 
-    info!("Listening for device events...");
+    info!("Listening for inotify events...");
     let mut inotify = Inotify::init()?;
     inotify.add_watch(
         DEV_INPUT,
@@ -135,14 +180,14 @@ fn main() -> eyre::Result<()> {
     loop {
         let events = inotify.read_events_blocking(&mut buffer)?;
         for event in events {
-            debug!("Received event {:?}", event);
+            debug!("Received inotify event {:?}", event);
             if let Some(name) = event.name {
                 let path = Path::new(DEV_INPUT).join(name);
                 debug!("{}: trying to open device", path.display());
                 let device = evdev::Device::open(&path);
                 match device {
                     Ok(mut device) if device_matches(&config, &device) => {
-                        listen_device(&config, &mut device)?;
+                        listen_device(&config, &mut device)
                     }
                     Err(error) => debug!("{}: failed to open device: {:?}", path.display(), error),
                     _ => (),
