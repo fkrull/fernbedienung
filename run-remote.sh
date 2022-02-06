@@ -1,7 +1,6 @@
 #!/bin/sh -eu
-TARGET=armv7-unknown-linux-musleabihf
+TARGET=armv7-unknown-linux-gnueabihf
 BIN=target/$TARGET/debug/inputactiond
-export RUSTFLAGS="-Clinker=rust-lld"
 cargo build --target=$TARGET
 llvm-strip $BIN
 scp $BIN $REMOTE:.cache/inputactiond
