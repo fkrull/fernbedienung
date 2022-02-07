@@ -2,7 +2,6 @@ use inotify::{Inotify, WatchMask};
 use log::{debug, error, info};
 use serde::Deserialize;
 use std::{
-    path::Path,
     process::{Child, Command},
     str::FromStr,
     sync::mpsc::{Receiver, SyncSender},
@@ -152,6 +151,22 @@ fn listen_device(config: &Config, device: &mut evdev::Device, send: &SyncSender<
     }
 }
 
+enum EnumerateResult {
+    Success,
+    NothingFound,
+}
+
+fn try_enumerate_devices(config: &Config, send: &SyncSender<(String, Child)>) -> EnumerateResult {
+    info!("Enumerating devices...");
+    for mut device in evdev::enumerate() {
+        if device_matches(&config, &device) {
+            listen_device(&config, &mut device, &send);
+            return EnumerateResult::Success;
+        }
+    }
+    EnumerateResult::NothingFound
+}
+
 fn log_command_results(recv: Receiver<(String, Child)>) -> eyre::Result<()> {
     debug!("Start logging command results");
     loop {
@@ -187,38 +202,26 @@ fn main() -> eyre::Result<()> {
     let (send, recv) = std::sync::mpsc::sync_channel(100);
     std::thread::spawn(|| log_command_results(recv));
 
-    info!("Enumerating initial devices...");
-    for mut device in evdev::enumerate() {
-        if device_matches(&config, &device) {
-            listen_device(&config, &mut device, &send);
-            break;
-        }
-    }
-
-    info!("Listening for inotify events...");
     let mut inotify = Inotify::init()?;
     inotify.add_watch(
         DEV_INPUT,
         WatchMask::ATTRIB | WatchMask::CREATE | WatchMask::MOVED_TO,
     )?;
-
     let mut buffer = [0; 1024];
+
     loop {
+        let mut retries_since_successful = 0;
+        while retries_since_successful <= 1 {
+            retries_since_successful = match try_enumerate_devices(&config, &send) {
+                EnumerateResult::Success => 0,
+                EnumerateResult::NothingFound => retries_since_successful + 1,
+            };
+        }
+
+        info!("Waiting for inotify events...");
         let events = inotify.read_events_blocking(&mut buffer)?;
         for event in events {
             debug!("Received inotify event {:?}", event);
-            if let Some(name) = event.name {
-                let path = Path::new(DEV_INPUT).join(name);
-                debug!("{}: trying to open device", path.display());
-                let device = evdev::Device::open(&path);
-                match device {
-                    Ok(mut device) if device_matches(&config, &device) => {
-                        listen_device(&config, &mut device, &send);
-                    }
-                    Err(error) => debug!("{}: failed to open device: {:?}", path.display(), error),
-                    _ => (),
-                }
-            }
         }
     }
 }
