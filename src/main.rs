@@ -196,11 +196,6 @@ fn main() -> eyre::Result<()> {
     let (send, recv) = std::sync::mpsc::sync_channel(100);
     std::thread::spawn(|| log_command_results(recv));
 
-    let mut inotify = Inotify::init()?;
-    inotify.add_watch(
-        DEV_INPUT,
-        WatchMask::ATTRIB | WatchMask::CREATE | WatchMask::MOVED_TO,
-    )?;
     let mut buffer = [0; 1024];
 
     loop {
@@ -213,6 +208,11 @@ fn main() -> eyre::Result<()> {
         }
 
         info!("Waiting for inotify events...");
+        let mut inotify = Inotify::init()?;
+        inotify.add_watch(
+            DEV_INPUT,
+            WatchMask::ATTRIB | WatchMask::CREATE | WatchMask::MOVED_TO,
+        )?;
         let events = inotify.read_events_blocking(&mut buffer)?;
         for event in events {
             debug!("Received inotify event {:?}", event);
