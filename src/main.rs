@@ -185,12 +185,6 @@ fn log_command_results(recv: Receiver<(String, Child)>) -> eyre::Result<()> {
 fn main() -> eyre::Result<()> {
     env_logger::Builder::from_env(env_logger::Env::new().default_filter_or("info")).try_init()?;
 
-    #[cfg(feature = "baked-config")]
-    let config: Config = {
-        const CONFIG: &'static str = env!("FERNBEDIENUNG_CONFIG");
-        toml::from_str(CONFIG)?
-    };
-    #[cfg(not(feature = "baked-config"))]
     let config: Config = {
         use eyre::Context;
         const CONFIG_ENV_KEY: &'static str = "FERNBEDIENUNG_CONFIG";

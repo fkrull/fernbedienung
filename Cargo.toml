@@ -14,6 +14,3 @@ log = "0.4.14"
 serde = { version = "1.0.136", features = ["derive"] }
 shell-words = "1.0.0"
 toml = "0.5.8"
-
-[features]
-baked-config = []
