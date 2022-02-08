@@ -197,7 +197,10 @@ fn main() -> eyre::Result<()> {
     std::thread::spawn(|| log_command_results(recv));
 
     let mut inotify = Inotify::init()?;
-    inotify.add_watch(DEV_INPUT, WatchMask::ALL_EVENTS)?;
+    inotify.add_watch(
+        DEV_INPUT,
+        WatchMask::ATTRIB | WatchMask::CREATE | WatchMask::MOVED_TO,
+    )?;
     let mut buffer = [0; 1024];
 
     loop {
