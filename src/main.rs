@@ -182,7 +182,7 @@ fn main() -> eyre::Result<()> {
     std::thread::spawn(|| log_command_results(recv));
 
     info!("Enumerating initial devices...");
-    for mut device in evdev::enumerate() {
+    for (_, mut device) in evdev::enumerate() {
         if device_matches(&config, &device) {
             listen_device(&config, &mut device, &send);
             break;

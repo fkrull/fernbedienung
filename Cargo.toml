@@ -7,7 +7,7 @@ edition = "2021"
 
 [dependencies]
 env_logger = "0.9.0"
-evdev = "0.11.4"
+evdev = "0.12.0"
 eyre = "0.6.6"
 inotify = "0.10.0"
 log = "0.4.14"
@@ -15,6 +15,6 @@ serde = { version = "1.0.136", features = ["derive"] }
 shell-words = "1.0.0"
 toml = "0.5.8"
 
-[release]
+[profile.release]
 lto = "thin"
 strip = "symbols"
