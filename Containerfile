@@ -4,8 +4,7 @@ FROM docker.io/library/rust:1 AS build
 ARG RUST_ARCH
 RUN rustup target add ${RUST_ARCH}
 COPY . /app
-RUN RUSTFLAGS="-Clinker=rust-lld -Cstrip=symbols" \
-    cargo build \
+RUN cargo build \
     --manifest-path=/app/Cargo.toml \
     --target=${RUST_ARCH} \
     --release \
