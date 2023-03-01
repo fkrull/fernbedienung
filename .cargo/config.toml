@@ -1,2 +1,8 @@
 [target.aarch64-unknown-linux-musl]
 linker = "rust-lld"
+
+[target.arm-unknown-linux-musl]
+linker = "rust-lld"
+
+[target.x86_64-unknown-linux-musl]
+linker = "rust-lld"
