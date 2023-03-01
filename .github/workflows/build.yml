@@ -30,6 +30,6 @@ jobs:
           docker build .
           --tag "${{ env.registry }}/fernbedienung:$(date +%s)"
           --platform "${{ matrix.container_platform }}"
-          --build-args "TARGET=${{ matrix.target }}"
+          --build-arg "TARGET=${{ matrix.target }}"
       - name: push image
         run: docker push "${{ env.name }}/fernbedienung"
