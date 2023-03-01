@@ -17,7 +17,6 @@ jobs:
             container_platform: linux/arm64/v8
     env:
       registry: ghcr.io/${{ github.repository_owner }}
-      name: ${{ env.registry }}/fernbedienung
     steps:
       - uses: actions/checkout@v3
       - uses: docker/setup-qemu-action@v2
@@ -29,8 +28,8 @@ jobs:
       - name: build image
         run: >
           docker build .
-          --tag "${{ env.name }}:$(date +%s)"
+          --tag "${{ env.registry }}/fernbedienung:$(date +%s)"
           --platform "${{ matrix.container_platform }}"
           --build-args "TARGET=${{ matrix.target }}"
       - name: push image
-        run: docker push "${{ env.name }}"
+        run: docker push "${{ env.name }}/fernbedienung"
