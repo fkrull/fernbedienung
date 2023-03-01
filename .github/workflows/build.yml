@@ -39,9 +39,10 @@ jobs:
       - name: build image
         run: >
           podman build target/context
-            --file $PWD/Dockerfile
+            --file -
             --platform ${{ matrix.container_platform }}
             --tag ${{ env.tag }}
+            < Dockerfile
       - name: push image
         uses: redhat-actions/push-to-registry@v2
         with:
