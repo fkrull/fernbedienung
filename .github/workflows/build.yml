@@ -15,6 +15,7 @@ jobs:
         include:
           - target: aarch64-unknown-linux-musl
             container_platform: linux/arm64/v8
+            tag: linux-aarch64
     env:
       registry: ghcr.io/${{ github.repository_owner }}
     steps:
@@ -35,7 +36,7 @@ jobs:
           username: ${{ github.actor }}
           password: ${{ github.token }}
       - name: get tag with date
-        run: echo "tag=${{ env.registry }}/fernbedienung:$(date +%s)" >> $GITHUB_ENV
+        run: echo "tag=${{ env.registry }}/fernbedienung:$(date +%Y.%m.%d.%s)-${{ matrix.tag }}" >> $GITHUB_ENV
       - name: build image
         run: podman build target/context --file Dockerfile --platform ${{ matrix.container_platform }} --tag ${{ env.tag }}
       - name: push image
