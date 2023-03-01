@@ -29,6 +29,7 @@ jobs:
           cargo build --release --target ${{ matrix.target }} --verbose
           mkdir -p target/context
           cp target/${{ matrix.target }}/release/fernbedienung target/context/
+          cp Dockerfile target/context/
       - uses: redhat-actions/podman-login@v1
         with:
           registry: ghcr.io/${{ github.repository_owner }}
@@ -39,10 +40,8 @@ jobs:
       - name: build image
         run: >
           podman build target/context
-            --file -
             --platform ${{ matrix.container_platform }}
             --tag ${{ env.tag }}
-            < Dockerfile
       - name: push image
         uses: redhat-actions/push-to-registry@v2
         with:
