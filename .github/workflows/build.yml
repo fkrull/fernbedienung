@@ -39,7 +39,7 @@ jobs:
       - name: build image
         run: >
           podman build target/context
-            --file ./Dockerfile
+            --file $PWD/Dockerfile
             --platform ${{ matrix.container_platform }}
             --tag ${{ env.tag }}
       - name: push image
