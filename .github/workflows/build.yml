@@ -1,0 +1,36 @@
+name: Build
+
+on:
+  push:
+    branches: [ "main" ]
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: true
+      matrix:
+        target:
+          - aarch64-unknown-linux-musl
+        include:
+          - target: aarch64-unknown-linux-musl
+            target_tag: linux-arm64v8
+    env:
+      registry: ghcr.io/${{ github.repository_owner }}
+      name: ${{ registry }}/fernbedienung
+    steps:
+      - uses: actions/checkout@v3
+      - uses: docker/setup-qemu-action@v2
+      - uses: docker/login-action@v2
+        with:
+          registry: ${{ registry }}
+          username: ${{ github.actor }}
+          password: ${{ github.token }}
+      - name: build image
+        run: >
+          docker build .
+          --tag "${{ name }}:$(date +%s)"
+          --build-args "TARGET=${{ matrix.target }}"
+          --build-args "TARGET_TAG=${{ matrix.target_tag }}"
+      - name: push image
+        run: docker push "${{ name }}"
