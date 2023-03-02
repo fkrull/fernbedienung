@@ -11,14 +11,14 @@ use std::{
 const DEV_INPUT: &'static str = "/dev/input";
 
 #[derive(Debug, Deserialize, PartialEq, Eq, Copy, Clone)]
-#[serde(try_from = "&str")]
+#[serde(try_from = "String")]
 struct KeyCode(evdev::Key);
 
-impl<'a> TryFrom<&'a str> for KeyCode {
+impl TryFrom<String> for KeyCode {
     type Error = eyre::Report;
 
-    fn try_from(value: &'a str) -> Result<Self, Self::Error> {
-        evdev::Key::from_str(value)
+    fn try_from(value: String) -> Result<Self, Self::Error> {
+        evdev::Key::from_str(&value)
             .map_err(|_| eyre::eyre!("invalid key name '{}'", value))
             .map(KeyCode)
     }
@@ -52,14 +52,14 @@ impl Default for KeyState {
 }
 
 #[derive(Debug, Deserialize, PartialEq, Eq)]
-#[serde(try_from = "&str")]
+#[serde(try_from = "String")]
 struct Action(Vec<String>);
 
-impl<'a> TryFrom<&'a str> for Action {
+impl TryFrom<String> for Action {
     type Error = eyre::Report;
 
-    fn try_from(value: &'a str) -> Result<Self, Self::Error> {
-        let words = shell_words::split(value)?;
+    fn try_from(value: String) -> Result<Self, Self::Error> {
+        let words = shell_words::split(&value)?;
         if words.is_empty() {
             Err(eyre::eyre!("command cannot be empty"))
         } else {
@@ -76,7 +76,7 @@ struct ActionConfig {
     action: Action,
 }
 
-#[derive(Debug, Deserialize)]
+#[derive(Debug, Deserialize, PartialEq, Eq)]
 struct Config {
     name: String,
     #[serde(default)]
@@ -214,5 +214,64 @@ fn main() -> eyre::Result<()> {
                 }
             }
         }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use indoc::indoc;
+
+    #[test]
+    fn should_parse_config_file() {
+        let s = indoc!(
+            r#"
+            name = "testdevice"
+
+            [[actions]]
+            key = "KEY_KPENTER"
+            on = "release"
+            action = "/bin/sh -c 'echo 1 2 3'"
+
+            [[actions]]
+            key = "KEY_UP"
+            action = "abc"
+
+            [[actions]]
+            key = "KEY_A"
+            on = "repeat"
+            action = "echo abc"
+        "#
+        );
+
+        let config: Config = toml::from_str(s).unwrap();
+
+        assert_eq!(
+            config,
+            Config {
+                name: "testdevice".to_string(),
+                actions: vec![
+                    ActionConfig {
+                        key: KeyCode(evdev::Key::KEY_KPENTER),
+                        on: KeyState::Release,
+                        action: Action(vec![
+                            "/bin/sh".to_string(),
+                            "-c".to_string(),
+                            "echo 1 2 3".to_string()
+                        ]),
+                    },
+                    ActionConfig {
+                        key: KeyCode(evdev::Key::KEY_UP),
+                        on: KeyState::Press,
+                        action: Action(vec!["abc".to_string()]),
+                    },
+                    ActionConfig {
+                        key: KeyCode(evdev::Key::KEY_A),
+                        on: KeyState::Repeat,
+                        action: Action(vec!["echo".to_string(), "abc".to_string()]),
+                    },
+                ],
+            }
+        );
     }
 }
