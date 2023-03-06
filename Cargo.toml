@@ -20,4 +20,4 @@ lto = "thin"
 strip = "symbols"
 
 [dev-dependencies]
-indoc = "2.0.0"
+indoc = "2.0.1"
